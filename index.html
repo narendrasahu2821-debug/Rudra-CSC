@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSC - Common Service Centre Dashboard</title>
+    <title>Rudra CSC - Service Dashboard</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome Icons -->
@@ -1454,8 +1454,8 @@ footer {
                 <div class="logo-area" onclick="goHome()">
                     <div class="header-csc-icon">CSC</div>
                     <div class="logo-title">
-                        <h1>Common Service Centre</h1>
-                        <p>Operator Portal Dashboard</p>
+                        <h1>Rudra CSC</h1>
+                        <p>Service Dashboard</p>
                     </div>
                 </div>
 
@@ -1585,15 +1585,6 @@ footer {
         let dashboardData = [];
         let isAdmin = false;
 
-        function injectLoginEmailField() {
-            const form = document.getElementById('loginForm');
-            if (!form || document.getElementById('loginEmail')) return;
-            const wrap = document.createElement('div');
-            wrap.className = 'input-box';
-            wrap.innerHTML = '<input type="email" id="loginEmail" placeholder="Admin email" autocomplete="username" required>';
-            form.insertBefore(wrap, form.firstElementChild);
-        }
-
         async function loadDashboardData() {
             const [{ data: sections, error: sErr }, { data: subs, error: subErr }, { data: services, error: srvErr }] = await Promise.all([
                 db.from('sections').select('id,name,icon').order('created_at', { ascending: true }),
@@ -1618,25 +1609,46 @@ footer {
             renderApp();
         }
 
+        async function checkAdmin() {
+            const { data, error } = await db.rpc('is_admin');
+            if (error) {
+                console.error('Admin check error:', error);
+                return false;
+            }
+            return data === true;
+        }
+
         async function initSupabase() {
-            injectLoginEmailField();
-            const { data } = await db.auth.getSession();
-            isAdmin = !!data.session;
-            await loadDashboardData();
-            showDashboard();
+            try {
+                const { data, error } = await db.auth.getSession();
+                if (error) throw error;
+
+                isAdmin = !!data.session && await checkAdmin();
+                await loadDashboardData();
+
+                if (isAdmin) showDashboard();
+                else showLogin();
+            } catch (err) {
+                console.error('Supabase init error:', err);
+                isAdmin = false;
+                showLogin();
+            }
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const email = document.getElementById('loginEmail')?.value.trim();
+
+            const email = 'narendrasahu2821@gmail.com';
             const password = document.getElementById('password')?.value || '';
             const errorDiv = document.getElementById('error');
             const successDiv = document.getElementById('success');
-            if (!email || !password) return;
+
+            if (!password) return;
 
             const { data, error } = await db.auth.signInWithPassword({ email, password });
+
             if (error) {
-                errorDiv.textContent = error.message || 'Login failed';
+                errorDiv.textContent = 'Wrong password or login failed.';
                 const passwordInput = document.getElementById('password');
                 passwordInput.value = '';
                 passwordInput.style.transform = 'translateX(-8px)';
@@ -1644,14 +1656,23 @@ footer {
                 setTimeout(() => passwordInput.style.transform = 'translateX(0)', 160);
                 return;
             }
-            isAdmin = !!data.session;
+
+            isAdmin = !!data.session && await checkAdmin();
+
+            if (!isAdmin) {
+                await db.auth.signOut();
+                errorDiv.textContent = 'This account is not an admin account.';
+                return;
+            }
+
             errorDiv.textContent = '';
             successDiv.classList.add('active');
+
             setTimeout(async () => {
                 successDiv.classList.remove('active');
                 await loadDashboardData();
                 showDashboard();
-            }, 1000);
+            }, 700);
         }
 
         async function handleLogout() {
@@ -1665,7 +1686,8 @@ footer {
         function showLogin() {
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('dashboardScreen').classList.add('hidden');
-            injectLoginEmailField();
+            const p = document.getElementById('password');
+            if (p) p.focus();
         }
 
         function showDashboard() {
@@ -1887,194 +1909,9 @@ footer {
             if (savedTheme) setTheme(savedTheme);
         } catch(e) {}
 
-        // Modal Handlers
-        function openModal(modalId) {
-            document.getElementById(modalId).style.display = 'flex';
-        }
 
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
+        document.addEventListener('DOMContentLoaded', initSupabase);
 
-        // Add Main Category Submit
-        function handleMainSectionSubmit(e) {
-            e.preventDefault();
-            const name = document.getElementById('mainSecName').value.trim();
-            const icon = document.getElementById('mainSecIcon').value.trim() || 'fa-solid fa-folder';
-
-            if (!name) return;
-
-            if (editingMainId !== null) {
-                const mainSec = dashboardData.find(m => m.id === editingMainId);
-                if (mainSec) {
-                    mainSec.name = name;
-                    mainSec.icon = icon;
-                    showToast('Category updated successfully');
-                }
-            } else {
-                const newId = 'main_' + Date.now();
-                dashboardData.push({
-                    id: newId,
-                    name: name,
-                    icon: icon,
-                    subSections: []
-                });
-                showToast('Category added successfully');
-            }
-
-            saveData();
-            closeModal('mainSectionModal');
-            document.getElementById('mainSecName').value = '';
-            document.getElementById('mainSecIcon').value = 'fa-solid fa-id-card';
-            editingMainId = null;
-            document.getElementById('mainSectionModalTitle').textContent = 'Add Main Category Section';
-            document.getElementById('mainSectionSubmitBtn').textContent = 'Add Category';
-            renderApp();
-        }
-
-        function editMainSection(mainId) {
-            const mainSec = dashboardData.find(m => m.id === mainId);
-            if (!mainSec) return;
-
-            editingMainId = mainId;
-            document.getElementById('mainSecName').value = mainSec.name || '';
-            document.getElementById('mainSecIcon').value = mainSec.icon || 'fa-solid fa-folder';
-            document.getElementById('mainSectionModalTitle').textContent = 'Edit Main Category';
-            document.getElementById('mainSectionSubmitBtn').textContent = 'Update Category';
-            openModal('mainSectionModal');
-        }
-
-        // Add Sub-Section Submit
-        function handleSubSectionSubmit(e) {
-            e.preventDefault();
-            const name = document.getElementById('subSecName').value.trim();
-            const mainSec = dashboardData.find(m => m.id === selectedMainId);
-
-            if (!name || !mainSec) return;
-
-            if (!mainSec.subSections) mainSec.subSections = [];
-
-            if (editingSubId !== null) {
-                const subSec = mainSec.subSections.find(s => s.id === editingSubId);
-                if (subSec) {
-                    subSec.name = name;
-                    showToast('Sub-section updated successfully');
-                }
-            } else {
-                const newSubId = 'sub_' + Date.now();
-                mainSec.subSections.push({
-                    id: newSubId,
-                    name: name,
-                    services: []
-                });
-                showToast('Sub-section added successfully');
-            }
-
-            saveData();
-            closeModal('subSectionModal');
-            document.getElementById('subSecName').value = '';
-            editingSubId = null;
-            document.getElementById('subSectionModalTitle').textContent = 'Add Sub-Section Name';
-            document.getElementById('subSectionSubmitBtn').textContent = 'Add Sub-Section';
-            renderApp();
-        }
-
-        function editSubSection(subId) {
-            const mainSec = dashboardData.find(m => m.id === selectedMainId);
-            if (!mainSec) return;
-
-            const subSec = mainSec.subSections.find(s => s.id === subId);
-            if (!subSec) return;
-
-            editingSubId = subId;
-            document.getElementById('subSecName').value = subSec.name || '';
-            document.getElementById('subSectionModalTitle').textContent = 'Edit Sub-Section';
-            document.getElementById('subSectionSubmitBtn').textContent = 'Update Sub-Section';
-            openModal('subSectionModal');
-        }
-
-        // Add Service Link Submit
-        function handleServiceSubmit(e) {
-            e.preventDefault();
-            const name = document.getElementById('srvName').value.trim();
-            const link = document.getElementById('srvLink').value.trim();
-
-            const mainSec = dashboardData.find(m => m.id === selectedMainId);
-            const subSec = mainSec ? mainSec.subSections.find(s => s.id === selectedSubId) : null;
-
-            if (!name || !link || !subSec) return;
-
-            if (!subSec.services) subSec.services = [];
-
-            if (editingServiceIndex !== null && subSec.services[editingServiceIndex]) {
-                subSec.services[editingServiceIndex] = { name, link };
-                showToast('Service updated successfully');
-            } else {
-                subSec.services.push({ name, link });
-                showToast('Service added successfully');
-            }
-
-            saveData();
-            closeModal('serviceModal');
-            document.getElementById('srvName').value = '';
-            document.getElementById('srvLink').value = '';
-            editingServiceIndex = null;
-            document.getElementById('serviceModalTitle').textContent = 'Add Service Name & Link';
-            document.getElementById('serviceSubmitBtn').textContent = 'Save Service';
-            renderApp();
-        }
-
-        function editService(index) {
-            const mainSec = dashboardData.find(m => m.id === selectedMainId);
-            if (!mainSec) return;
-
-            const subSec = mainSec.subSections.find(s => s.id === selectedSubId);
-            if (!subSec || !subSec.services || !subSec.services[index]) return;
-
-            const srv = subSec.services[index];
-            editingServiceIndex = index;
-
-            document.getElementById('srvName').value = srv.name || '';
-            document.getElementById('srvLink').value = srv.link || '';
-            document.getElementById('serviceModalTitle').textContent = 'Edit Service';
-            document.getElementById('serviceSubmitBtn').textContent = 'Update Service';
-
-            openModal('serviceModal');
-        }
-
-        // Delete Functions
-        function deleteMainSection(mainId) {
-            if (confirm("Are you sure you want to delete this main category and all its contents?")) {
-                dashboardData = dashboardData.filter(m => m.id !== mainId);
-                saveData();
-                renderApp();
-            }
-        }
-
-        function deleteSubSection(subId) {
-            if (confirm("Are you sure you want to delete this sub-section?")) {
-                const mainSec = dashboardData.find(m => m.id === selectedMainId);
-                if (mainSec) {
-                    mainSec.subSections = mainSec.subSections.filter(s => s.id !== subId);
-                    saveData();
-                    renderApp();
-                }
-            }
-        }
-
-        function deleteService(index) {
-            if (confirm("Are you sure you want to delete this service link?")) {
-                const mainSec = dashboardData.find(m => m.id === selectedMainId);
-                if (mainSec) {
-                    const subSec = mainSec.subSections.find(s => s.id === selectedSubId);
-                    if (subSec && subSec.services) {
-                        subSec.services.splice(index, 1);
-                        saveData();
-                        renderApp();
-                    }
-                }
-            }
-        }
     </script>
 </body>
 </html>
