@@ -1624,10 +1624,14 @@ footer {
                 if (error) throw error;
 
                 isAdmin = !!data.session && await checkAdmin();
-                await loadDashboardData();
-
-                if (isAdmin) showDashboard();
-                else showLogin();
+                if (isAdmin) {
+                    showDashboard();
+                    try { await loadDashboardData(); } catch (loadErr) {
+                        console.error('Dashboard data load error:', loadErr);
+                    }
+                } else {
+                    showLogin();
+                }
             } catch (err) {
                 console.error('Supabase init error:', err);
                 isAdmin = false;
@@ -1670,9 +1674,15 @@ footer {
 
             setTimeout(async () => {
                 successDiv.classList.remove('active');
-                await loadDashboardData();
+                // Show the dashboard FIRST. A database/rendering error must not
+                // leave the successful admin login stuck on the login screen.
                 showDashboard();
-            }, 700);
+                try {
+                    await loadDashboardData();
+                } catch (loadErr) {
+                    console.error('Dashboard data load error:', loadErr);
+                }
+            }, 500);
         }
 
         async function handleLogout() {
