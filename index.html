@@ -614,6 +614,8 @@
             display: flex;
             align-items: center;
             gap: 14px;
+            min-width: 0;
+            flex: 1;
         }
 
         .card-icon-title i {
@@ -632,6 +634,14 @@
             font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-icon-title > div {
+            min-width: 0;
+            flex: 1;
         }
 
         .card-icon-title p {
@@ -690,12 +700,13 @@
         }
 
         .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
 
         .service-card-item {
+            width: 100%;
             background: white;
             border: 1px solid var(--border);
             border-radius: 14px;
@@ -705,6 +716,16 @@
             justify-content: space-between;
             box-shadow: var(--shadow-sm);
             transition: all 0.2s;
+        }
+
+        .service-name-text {
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text-dark);
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .service-card-item:hover {
@@ -1249,6 +1270,7 @@ body.cursor-off #cursorGlow{opacity:0;}
         let editingServiceIndex = null;
         let editingMainId = null;
         let editingSubId = null;
+        let isViewOnly = false; // true when logged in with the view-only code
 
         // Default Data Architecture
         let dashboardData = [
@@ -1357,16 +1379,20 @@ body.cursor-off #cursorGlow{opacity:0;}
         loadDataFromSupabase();
 
         // Login Logic with 3D animation
-        // Two operators log in with just their password (a.s.a.2821 -> 2821, rudra6265 -> 6265).
-        const validPasswords = ["2821", "6265"];
+        // Two operators log in with full access (a.s.a.2821 -> 2821, rudra6265 -> 6265).
+        // "00" is a view-only code: dashboard opens normally but Add/Edit/Delete/Save buttons stay hidden.
+        const validPasswords = ["2821", "6265", "00"];
+        const viewOnlyPasswords = ["00"];
 
         function handleLogin(e) {
             e.preventDefault();
             const passwordInput = document.getElementById("password");
             const errorDiv = document.getElementById("error");
             const successDiv = document.getElementById("success");
+            const enteredPassword = passwordInput.value.trim();
 
-            if (validPasswords.includes(passwordInput.value.trim())) {
+            if (validPasswords.includes(enteredPassword)) {
+                isViewOnly = viewOnlyPasswords.includes(enteredPassword);
                 errorDiv.textContent = "";
                 
                 // Show 3D animation
@@ -1396,6 +1422,7 @@ body.cursor-off #cursorGlow{opacity:0;}
         function showLogin() {
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('dashboardScreen').classList.add('hidden');
+            isViewOnly = false;
             const pwd = document.getElementById('password');
             pwd.value = '';
             pwd.focus();
@@ -1446,12 +1473,13 @@ body.cursor-off #cursorGlow{opacity:0;}
                                     <p>${subCount} Sub-Sections</p>
                                 </div>
                             </div>
+                            ${isViewOnly ? '' : `
                             <button class="card-edit-btn btn-3d" onclick="event.stopPropagation(); editMainSection('${main.id}')" title="Edit Category">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
                             <button class="card-delete-btn" onclick="event.stopPropagation(); deleteMainSection('${main.id}')" title="Delete Category">
                                 <i class="fa-solid fa-trash-can"></i>
-                            </button>
+                            </button>`}
                         </div>
                         <div class="card-footer-info">
                             <span>Open Category</span>
@@ -1466,9 +1494,10 @@ body.cursor-off #cursorGlow{opacity:0;}
                     <div class="view-title-area">
                         <h2><i class="fa-solid fa-layer-group" style="color: var(--csc-blue);"></i> Main Service Categories</h2>
                     </div>
+                    ${isViewOnly ? '' : `
                     <button onclick="openModal('mainSectionModal')" class="btn-primary-action btn-3d">
                         <i class="fa-solid fa-plus-circle"></i> Add Main Category
-                    </button>
+                    </button>`}
                 </div>
                 <div class="cards-grid">
                     ${cardsHTML}
@@ -1503,12 +1532,13 @@ body.cursor-off #cursorGlow{opacity:0;}
                                         <p>${srvCount} Services Available</p>
                                     </div>
                                 </div>
+                                ${isViewOnly ? '' : `
                                 <button class="card-edit-btn btn-3d" onclick="event.stopPropagation(); editSubSection('${sub.id}')" title="Edit Sub-Section">
                                     <i class="fa-solid fa-pen"></i>
                                 </button>
                                 <button class="card-delete-btn" onclick="event.stopPropagation(); deleteSubSection('${sub.id}')" title="Delete Sub-Section">
                                     <i class="fa-solid fa-trash-can"></i>
-                                </button>
+                                </button>`}
                             </div>
                             <div class="card-footer-info" style="color: var(--csc-orange);">
                                 <span>View Services</span>
@@ -1527,9 +1557,10 @@ body.cursor-off #cursorGlow{opacity:0;}
                         </button>
                         <h2><i class="fa-solid fa-folder-open" style="color: var(--csc-blue);"></i> ${escapeHTML(mainSec.name)} / Sub-Sections</h2>
                     </div>
+                    ${isViewOnly ? '' : `
                     <button onclick="openModal('subSectionModal')" class="btn-primary-action btn-3d">
                         <i class="fa-solid fa-plus-circle"></i> Add Sub-Section
-                    </button>
+                    </button>`}
                 </div>
                 <div class="cards-grid">
                     ${subHTML}
@@ -1559,21 +1590,21 @@ body.cursor-off #cursorGlow{opacity:0;}
                         <div class="service-card-item">
                             <div class="service-info" style="flex:1; min-width:0;">
                                 <i class="fa-solid fa-globe"></i>
-                                <div style="min-width:0;">
-                                    <div style="font-weight:800; font-size:1rem; color:var(--text-dark); margin-bottom:4px;">${escapeHTML(srv.name)}</div>
-                                    
+                                <div style="min-width:0; flex:1;">
+                                    <div class="service-name-text" title="${escapeHTML(srv.name)}">${escapeHTML(srv.name)}</div>
                                 </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:8px;margin-left:12px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-left:12px;flex-shrink:0;">
                                 <button class="open-link-btn btn-3d" onclick="openServiceLink('${encodeURIComponent(srv.link)}')" title="Open Website">
                                     <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
                                 </button>
+                                ${isViewOnly ? '' : `
                                 <button class="card-edit-btn btn-3d" onclick="editService(${index})" title="Edit Service">
                                     <i class="fa-solid fa-pen"></i>
                                 </button>
                                 <button class="card-delete-btn" onclick="deleteService(${index})" title="Delete Service">
                                     <i class="fa-solid fa-trash-can"></i>
-                                </button>
+                                </button>`}
                             </div>
                         </div>
                     `;
@@ -1588,9 +1619,10 @@ body.cursor-off #cursorGlow{opacity:0;}
                         </button>
                         <h2><i class="fa-solid fa-list-check" style="color: var(--csc-blue);"></i> ${escapeHTML(subSec.name)}</h2>
                     </div>
+                    ${isViewOnly ? '' : `
                     <button onclick="openModal('serviceModal')" class="btn-primary-action btn-3d">
                         <i class="fa-solid fa-plus-circle"></i> Add Service Link
-                    </button>
+                    </button>`}
                 </div>
                 <div class="services-grid">
                     ${srvHTML}
@@ -1640,8 +1672,8 @@ body.cursor-off #cursorGlow{opacity:0;}
                             <div style="font-size:.75rem;font-weight:800;color:var(--csc-orange);text-transform:uppercase;">${escapeHTML(res.mainName)} &rsaquo; ${escapeHTML(res.subName)}</div>
                             <div class="service-info" style="width:100%;">
                                 <i class="fa-solid fa-globe"></i>
-                                <div style="overflow:hidden;width:100%;">
-                                    <div style="font-weight:800;font-size:1rem;color:var(--text-dark);">${escapeHTML(res.name)}</div>
+                                <div style="overflow:hidden;width:100%;min-width:0;">
+                                    <div class="service-name-text" title="${escapeHTML(res.name)}">${escapeHTML(res.name)}</div>
                                     <div style="font-size:.78rem;color:var(--text-muted);margin-top:3px;">Saved website link</div>
                                 </div>
                             </div>
